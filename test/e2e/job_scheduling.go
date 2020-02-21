@@ -34,7 +34,7 @@ import (
 	schedulingapi "volcano.sh/volcano/pkg/scheduler/api"
 )
 
-var _ = Describe("Job E2E Test", func() {
+var _ = FDescribe("Job E2E Test", func() {
 	It("Schedule Job", func() {
 		context := initTestContext(options{})
 		defer cleanupTestContext(context)

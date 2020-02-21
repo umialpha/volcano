@@ -223,6 +223,7 @@ func autoConvert_v1beta1_PodGroupSpec_To_scheduling_PodGroupSpec(in *PodGroupSpe
 	out.Queue = in.Queue
 	out.PriorityClassName = in.PriorityClassName
 	out.MinResources = (*v1.ResourceList)(unsafe.Pointer(in.MinResources))
+	out.SubGroup = in.SubGroup
 	return nil
 }
 
@@ -236,6 +237,7 @@ func autoConvert_scheduling_PodGroupSpec_To_v1beta1_PodGroupSpec(in *scheduling.
 	out.Queue = in.Queue
 	out.PriorityClassName = in.PriorityClassName
 	out.MinResources = (*v1.ResourceList)(unsafe.Pointer(in.MinResources))
+	out.SubGroup = in.SubGroup
 	return nil
 }
 
