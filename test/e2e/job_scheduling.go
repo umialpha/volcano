@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	batchv1 "k8s.io/api/batch/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -34,7 +34,7 @@ import (
 	schedulingapi "volcano.sh/volcano/pkg/scheduler/api"
 )
 
-var _ = FDescribe("Job E2E Test", func() {
+var _ = Describe("Job E2E Test", func() {
 	It("Schedule Job", func() {
 		context := initTestContext(options{})
 		defer cleanupTestContext(context)

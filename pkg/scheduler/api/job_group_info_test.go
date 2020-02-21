@@ -32,6 +32,7 @@ type jobCofig struct {
 
 func buildJob(jobconfig jobCofig) *JobInfo {
 	job := NewJobInfo(jobconfig.uid)
+	job.Namespace = jobconfig.namespace
 	owner := buildOwnerReference(string(job.UID))
 	for _, podconfig := range jobconfig.podconfigs {
 		pod := buildPod(jobconfig.namespace, podconfig.name, podconfig.nodeName, podconfig.podPhase, buildResourceList(podconfig.cpu, podconfig.memory), []metav1.OwnerReference{owner}, make(map[string]string))

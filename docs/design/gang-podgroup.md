@@ -106,16 +106,16 @@ JobGroupOrder is determined by its `TopJob`. `TopJob` is determined by the `orde
 
 
 #### TODO
-This feature is implemented in the Scheduler Level, not the Controller Level.
+This feature is implemented on the Scheduler Level, not on the Controller Level.
 Currently, Controller treats a Volcano-Job as One PodGroup.
-If this feature wants to be enabled in the Controller Level, there are two approaches.
+There are two approaches to enable this feature on the Controller Level.
 
 1.  Still treat one Volcano-Job as One PodGroup. Add a `SubGroup` into the Volcano Job Spec.
-    If anyone wants to group jobs, he must submit Two Volcano Jobs.
+    If users want to group jobs, they must submit Two different Volcano-Jobs with the same `SubGroup`.
     Pros: Simple, small modification.
-    Cons: Not so friendly and straightforward to users.
+    Cons: Not friendly, not straightforward to users.
 
 2.  Treat each task within Volcano as a PodGroup, all of the tasks belongs to a same `SubGroup`.
-    Pros: friendly and straightforward to users.
-    Cons: big modifications.
+    Pros: Friendly and straightforward to users.
+    Cons: Big modification.
 
