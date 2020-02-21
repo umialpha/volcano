@@ -22,9 +22,9 @@ import (
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kubeletapi "k8s.io/kubernetes/pkg/kubelet/apis"
 
 	vcbatch "volcano.sh/volcano/pkg/apis/batch/v1alpha1"
+	vcbus "volcano.sh/volcano/pkg/apis/bus/v1alpha1"
 )
 
 var _ = Describe("Job Life Cycle", func() {
@@ -134,8 +134,8 @@ var _ = Describe("Job Life Cycle", func() {
 			name: "failed-delete-job",
 			policies: []vcbatch.LifecyclePolicy{
 				{
-					Action: vcbatch.AbortJobAction,
-					Event:  vcbatch.PodFailedEvent,
+					Action: vcbus.AbortJobAction,
+					Event:  vcbus.PodFailedEvent,
 				},
 			},
 			tasks: []taskSpec{
@@ -173,8 +173,8 @@ var _ = Describe("Job Life Cycle", func() {
 			name: "terminate-delete-job",
 			policies: []vcbatch.LifecyclePolicy{
 				{
-					Action: vcbatch.TerminateJobAction,
-					Event:  vcbatch.PodFailedEvent,
+					Action: vcbus.TerminateJobAction,
+					Event:  vcbus.PodFailedEvent,
 				},
 			},
 			tasks: []taskSpec{
@@ -212,8 +212,8 @@ var _ = Describe("Job Life Cycle", func() {
 			name: "terminate-delete-job",
 			policies: []vcbatch.LifecyclePolicy{
 				{
-					Action: vcbatch.TerminateJobAction,
-					Event:  vcbatch.PodFailedEvent,
+					Action: vcbus.TerminateJobAction,
+					Event:  vcbus.PodFailedEvent,
 				},
 			},
 			tasks: []taskSpec{
@@ -250,8 +250,8 @@ var _ = Describe("Job Life Cycle", func() {
 			name: "terminate-job",
 			policies: []vcbatch.LifecyclePolicy{
 				{
-					Action: vcbatch.TerminateJobAction,
-					Event:  vcbatch.PodFailedEvent,
+					Action: vcbus.TerminateJobAction,
+					Event:  vcbus.PodFailedEvent,
 				},
 			},
 			tasks: []taskSpec{
@@ -282,7 +282,7 @@ var _ = Describe("Job Life Cycle", func() {
 					{
 						MatchExpressions: []v1.NodeSelectorRequirement{
 							{
-								Key:      kubeletapi.LabelHostname,
+								Key:      v1.LabelHostname,
 								Operator: v1.NodeSelectorOpIn,
 								Values:   []string{nodeName},
 							},
@@ -296,8 +296,8 @@ var _ = Describe("Job Life Cycle", func() {
 			name: "unschedulable-job",
 			policies: []vcbatch.LifecyclePolicy{
 				{
-					Action: vcbatch.TerminateJobAction,
-					Event:  vcbatch.PodFailedEvent,
+					Action: vcbus.TerminateJobAction,
+					Event:  vcbus.PodFailedEvent,
 				},
 			},
 			tasks: []taskSpec{

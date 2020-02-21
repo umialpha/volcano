@@ -23,7 +23,6 @@ import (
 
 	busv1alpha1 "volcano.sh/volcano/pkg/apis/bus/v1alpha1"
 	"volcano.sh/volcano/pkg/apis/helpers"
-	schedulingv1alpha2 "volcano.sh/volcano/pkg/apis/scheduling/v1alpha2"
 	"volcano.sh/volcano/pkg/client/clientset/versioned"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,14 +43,14 @@ func buildConfig(master, kubeconfig string) (*rest.Config, error) {
 	return clientcmd.BuildConfigFromFlags(master, kubeconfig)
 }
 
-func createQueueCommand(config *rest.Config, action schedulingv1alpha2.QueueAction) error {
+func createQueueCommand(config *rest.Config, action busv1alpha1.Action) error {
 	queueClient := versioned.NewForConfigOrDie(config)
-	queue, err := queueClient.SchedulingV1alpha2().Queues().Get(operateQueueFlags.Name, metav1.GetOptions{})
+	queue, err := queueClient.SchedulingV1beta1().Queues().Get(operateQueueFlags.Name, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
 
-	ctrlRef := metav1.NewControllerRef(queue, helpers.V1alpha2QueueKind)
+	ctrlRef := metav1.NewControllerRef(queue, helpers.V1beta1QueueKind)
 	cmd := &busv1alpha1.Command{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: fmt.Sprintf("%s-%s-",

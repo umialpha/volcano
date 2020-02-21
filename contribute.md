@@ -31,7 +31,7 @@ The goal of the community is to develop a volcano system which is useful for run
 
 # Getting started
 
-- Read the [get started](docs/development/perepare-for-development.md) for developing code for Volcano
+- Read the [get started](docs/development/prepare-for-development.md) for developing code for Volcano
 - Read the [setup](docs/development/development.md) for build/deploy instructions.
 
 

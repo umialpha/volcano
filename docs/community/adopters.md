@@ -15,4 +15,5 @@ please feel free to add yourself into the following list by a pull request.
 | [kt NexR](https://www.ktnexr.com) |[@minyk](https://github.com/minyk), [@dieselnexr](https://github.com/dieselnexr)| Evaluation | spark scheduler of our next cloud native product. |
 | [QTT Bigdata Infra](https://ir.qutoutiao.net/) |[@yuzhaojing](https://github.com/yuzhaojing) | Evaluation | Spark and AI on K8S. |
 | [Vivo](https://www.vivo.com/) | [@zionwu](https://github.com/zionwu)                         | Evaluation | Scheduler for Vtraining (deep learning training platform) |
-
+| [Xiaohongshu](https://www.xiaohongshu.com/) | [@xiaogaozi](https://github.com/xiaogaozi)                         | Evaluation | TensorFlow on K8s |
+| [Shareit](https://www.ushareit.com/) | [@yujiantao](https://github.com/yujiantao)                         | Evaluation | Spark on K8s |

@@ -73,7 +73,7 @@ func buildConfig(opt *options.ServerOption) (*rest.Config, error) {
 	return cfg, nil
 }
 
-// Run the kube-batch scheduler
+// Run the volcano scheduler
 func Run(opt *options.ServerOption) error {
 	if opt.PrintVersion {
 		version.PrintVersionAndExit()
@@ -133,6 +133,7 @@ func Run(opt *options.ServerOption) error {
 		opt.LockObjectNamespace,
 		opt.SchedulerName,
 		leaderElectionClient.CoreV1(),
+		leaderElectionClient.CoordinationV1(),
 		resourcelock.ResourceLockConfig{
 			Identity:      id,
 			EventRecorder: eventRecorder,

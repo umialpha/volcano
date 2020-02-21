@@ -18,6 +18,7 @@ package job
 
 import (
 	"fmt"
+	"volcano.sh/volcano/pkg/apis/bus/v1alpha1"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,7 +27,7 @@ import (
 
 	batch "volcano.sh/volcano/pkg/apis/batch/v1alpha1"
 	"volcano.sh/volcano/pkg/apis/helpers"
-	schedulingv2 "volcano.sh/volcano/pkg/apis/scheduling/v1alpha2"
+	schedulingv2 "volcano.sh/volcano/pkg/apis/scheduling/v1beta1"
 	"volcano.sh/volcano/pkg/controllers/apis"
 	jobhelpers "volcano.sh/volcano/pkg/controllers/job/helpers"
 )
@@ -86,10 +87,6 @@ func createJobPod(job *batch.Job, template *v1.PodTemplateSpec, ix int) *v1.Pod 
 		}
 	}
 
-	if len(pod.Annotations) == 0 {
-		pod.Annotations = make(map[string]string)
-	}
-
 	tsKey := templateCopy.Name
 	if len(tsKey) == 0 {
 		tsKey = batch.DefaultTaskSpec
@@ -100,7 +97,7 @@ func createJobPod(job *batch.Job, template *v1.PodTemplateSpec, ix int) *v1.Pod 
 	}
 
 	pod.Annotations[batch.TaskSpecKey] = tsKey
-	pod.Annotations[schedulingv2.GroupNameAnnotationKey] = job.Name
+	pod.Annotations[schedulingv2.KubeGroupNameAnnotationKey] = job.Name
 	pod.Annotations[batch.JobNameKey] = job.Name
 	pod.Annotations[batch.JobVersion] = fmt.Sprintf("%d", job.Status.Version)
 
@@ -112,27 +109,22 @@ func createJobPod(job *batch.Job, template *v1.PodTemplateSpec, ix int) *v1.Pod 
 	pod.Labels[batch.JobNameKey] = job.Name
 	pod.Labels[batch.JobNamespaceKey] = job.Namespace
 
-	// we fill the schedulerName in the pod definition with the one specified in the QJ template
-	if job.Spec.SchedulerName != "" && pod.Spec.SchedulerName == "" {
-		pod.Spec.SchedulerName = job.Spec.SchedulerName
-	}
-
 	return pod
 }
 
-func applyPolicies(job *batch.Job, req *apis.Request) batch.Action {
+func applyPolicies(job *batch.Job, req *apis.Request) v1alpha1.Action {
 	if len(req.Action) != 0 {
 		return req.Action
 	}
 
-	if req.Event == batch.OutOfSyncEvent {
-		return batch.SyncJobAction
+	if req.Event == v1alpha1.OutOfSyncEvent {
+		return v1alpha1.SyncJobAction
 	}
 
 	// For all the requests triggered from discarded job resources will perform sync action instead
 	if req.JobVersion < job.Status.Version {
 		klog.Infof("Request %s is outdated, will perform sync instead.", req)
-		return batch.SyncJobAction
+		return v1alpha1.SyncJobAction
 	}
 
 	// Overwrite Job level policies
@@ -144,7 +136,7 @@ func applyPolicies(job *batch.Job, req *apis.Request) batch.Action {
 					policyEvents := getEventlist(policy)
 
 					if len(policyEvents) > 0 && len(req.Event) > 0 {
-						if checkEventExist(policyEvents, req.Event) || checkEventExist(policyEvents, batch.AnyEvent) {
+						if checkEventExist(policyEvents, req.Event) || checkEventExist(policyEvents, v1alpha1.AnyEvent) {
 							return policy.Action
 						}
 					}
@@ -164,7 +156,7 @@ func applyPolicies(job *batch.Job, req *apis.Request) batch.Action {
 		policyEvents := getEventlist(policy)
 
 		if len(policyEvents) > 0 && len(req.Event) > 0 {
-			if checkEventExist(policyEvents, req.Event) || checkEventExist(policyEvents, batch.AnyEvent) {
+			if checkEventExist(policyEvents, req.Event) || checkEventExist(policyEvents, v1alpha1.AnyEvent) {
 				return policy.Action
 			}
 		}
@@ -175,10 +167,10 @@ func applyPolicies(job *batch.Job, req *apis.Request) batch.Action {
 		}
 	}
 
-	return batch.SyncJobAction
+	return v1alpha1.SyncJobAction
 }
 
-func getEventlist(policy batch.LifecyclePolicy) []batch.Event {
+func getEventlist(policy batch.LifecyclePolicy) []v1alpha1.Event {
 	policyEventsList := policy.Events
 	if len(policy.Event) > 0 {
 		policyEventsList = append(policyEventsList, policy.Event)
@@ -186,7 +178,7 @@ func getEventlist(policy batch.LifecyclePolicy) []batch.Event {
 	return policyEventsList
 }
 
-func checkEventExist(policyEvents []batch.Event, reqEvent batch.Event) bool {
+func checkEventExist(policyEvents []v1alpha1.Event, reqEvent v1alpha1.Event) bool {
 	for _, event := range policyEvents {
 		if event == reqEvent {
 			return true
@@ -200,7 +192,7 @@ func addResourceList(list, req, limit v1.ResourceList) {
 	for name, quantity := range req {
 
 		if value, ok := list[name]; !ok {
-			list[name] = *quantity.Copy()
+			list[name] = quantity.DeepCopy()
 		} else {
 			value.Add(quantity)
 			list[name] = value
@@ -211,7 +203,7 @@ func addResourceList(list, req, limit v1.ResourceList) {
 	// it defaults to Limits if that is explicitly specified.
 	for name, quantity := range limit {
 		if _, ok := list[name]; !ok {
-			list[name] = *quantity.Copy()
+			list[name] = quantity.DeepCopy()
 		}
 	}
 }

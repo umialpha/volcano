@@ -19,12 +19,12 @@ package queue
 import (
 	"fmt"
 
-	schedulingv1alpha2 "volcano.sh/volcano/pkg/apis/scheduling/v1alpha2"
-	"volcano.sh/volcano/pkg/client/clientset/versioned"
-
 	"github.com/spf13/cobra"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+
+	"volcano.sh/volcano/pkg/apis/bus/v1alpha1"
+	"volcano.sh/volcano/pkg/client/clientset/versioned"
 )
 
 const (
@@ -70,13 +70,13 @@ func OperateQueue() error {
 		return fmt.Errorf("Queue name must be specified")
 	}
 
-	var action schedulingv1alpha2.QueueAction
+	var action v1alpha1.Action
 
 	switch operateQueueFlags.Action {
 	case ActionOpen:
-		action = schedulingv1alpha2.OpenQueueAction
+		action = v1alpha1.OpenQueueAction
 	case ActionClose:
-		action = schedulingv1alpha2.CloseQueueAction
+		action = v1alpha1.CloseQueueAction
 	case ActionUpdate:
 		if operateQueueFlags.Weight == 0 {
 			return fmt.Errorf("When %s queue %s, weight must be specified, "+
@@ -84,14 +84,8 @@ func OperateQueue() error {
 		}
 
 		queueClient := versioned.NewForConfigOrDie(config)
-		queue, err := queueClient.SchedulingV1alpha2().Queues().Get(operateQueueFlags.Name, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-
-		queue.Spec.Weight = int32(operateQueueFlags.Weight)
-
-		_, err = queueClient.SchedulingV1alpha2().Queues().Update(queue)
+		patchBytes := []byte(fmt.Sprintf(`{"spec":{"weight":%d}}`, operateQueueFlags.Weight))
+		_, err := queueClient.SchedulingV1beta1().Queues().Patch(operateQueueFlags.Name, types.MergePatchType, patchBytes)
 
 		return err
 	case "":

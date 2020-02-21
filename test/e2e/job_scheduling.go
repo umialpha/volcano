@@ -158,6 +158,39 @@ var _ = Describe("Job E2E Test", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
+	It("Gang scheduling: Contains both best-effort pod and non-best-effort pod", func() {
+		context := initTestContext(options{})
+		defer cleanupTestContext(context)
+		rep := clusterSize(context, oneCPU)
+
+		if rep < 2 {
+			fmt.Println("Skip e2e test for insufficient resources.")
+			return
+		}
+
+		jobSpec := &jobSpec{
+			name:      "gang-both-best-effort-non-best-effort-pods",
+			namespace: "test",
+			tasks: []taskSpec{
+				{
+					img: defaultNginxImage,
+					req: oneCPU,
+					min: rep / 2,
+					rep: rep / 2,
+				},
+				{
+					img: defaultNginxImage,
+					min: rep - rep/2,
+					rep: rep - rep/2,
+				},
+			},
+		}
+
+		job := createJob(context, jobSpec)
+		err := waitJobReady(context, job)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
 	It("Preemption", func() {
 		context := initTestContext(options{
 			priorityClasses: map[string]int32{
@@ -189,6 +222,7 @@ var _ = Describe("Job E2E Test", func() {
 
 		job.name = "preemptor-qj"
 		job.pri = masterPriority
+		job.min = rep / 2
 		job2 := createJob(context, job)
 		err = waitTasksReady(context, job1, int(rep)/2)
 		Expect(err).NotTo(HaveOccurred())
@@ -229,6 +263,7 @@ var _ = Describe("Job E2E Test", func() {
 
 		job.name = "multipreemptor-qj1"
 		job.pri = masterPriority
+		job.min = rep / 3
 		job2 := createJob(context, job)
 		Expect(err).NotTo(HaveOccurred())
 

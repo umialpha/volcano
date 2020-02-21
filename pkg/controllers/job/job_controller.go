@@ -20,9 +20,6 @@ import (
 	"fmt"
 	"hash"
 	"hash/fnv"
-	"sync"
-	"time"
-
 	"k8s.io/api/core/v1"
 	"k8s.io/api/scheduling/v1beta1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -37,6 +34,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
+	"sync"
+	"time"
 
 	batchv1alpha1 "volcano.sh/volcano/pkg/apis/batch/v1alpha1"
 	busv1alpha1 "volcano.sh/volcano/pkg/apis/bus/v1alpha1"
@@ -45,10 +44,10 @@ import (
 	informerfactory "volcano.sh/volcano/pkg/client/informers/externalversions"
 	batchinformer "volcano.sh/volcano/pkg/client/informers/externalversions/batch/v1alpha1"
 	businformer "volcano.sh/volcano/pkg/client/informers/externalversions/bus/v1alpha1"
-	schedulinginformers "volcano.sh/volcano/pkg/client/informers/externalversions/scheduling/v1alpha2"
+	schedulinginformers "volcano.sh/volcano/pkg/client/informers/externalversions/scheduling/v1beta1"
 	batchlister "volcano.sh/volcano/pkg/client/listers/batch/v1alpha1"
 	buslister "volcano.sh/volcano/pkg/client/listers/bus/v1alpha1"
-	schedulinglisters "volcano.sh/volcano/pkg/client/listers/scheduling/v1alpha2"
+	schedulinglisters "volcano.sh/volcano/pkg/client/listers/scheduling/v1beta1"
 	"volcano.sh/volcano/pkg/controllers/apis"
 	jobcache "volcano.sh/volcano/pkg/controllers/cache"
 	"volcano.sh/volcano/pkg/controllers/job/state"
@@ -126,7 +125,7 @@ func NewJobController(
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(klog.Infof)
 	eventBroadcaster.StartRecordingToSink(&corev1.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
-	recorder := eventBroadcaster.NewRecorder(vcscheme.Scheme, v1.EventSource{Component: "vc-controllers"})
+	recorder := eventBroadcaster.NewRecorder(vcscheme.Scheme, v1.EventSource{Component: "vc-controller-manager"})
 
 	cc := &Controller{
 		kubeClient:      kubeClient,
@@ -198,7 +197,7 @@ func NewJobController(
 	cc.svcLister = cc.svcInformer.Lister()
 	cc.svcSynced = cc.svcInformer.Informer().HasSynced
 
-	cc.pgInformer = informerfactory.NewSharedInformerFactory(cc.vcClient, 0).Scheduling().V1alpha2().PodGroups()
+	cc.pgInformer = informerfactory.NewSharedInformerFactory(cc.vcClient, 0).Scheduling().V1beta1().PodGroups()
 	cc.pgInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: cc.updatePodGroup,
 	})
@@ -331,7 +330,7 @@ func (cc *Controller) processNextReq(count uint32) bool {
 	klog.V(3).Infof("Execute <%v> on Job <%s/%s> in <%s> by <%T>.",
 		action, req.Namespace, req.JobName, jobInfo.Job.Status.State.Phase, st)
 
-	if action != batchv1alpha1.SyncJobAction {
+	if action != busv1alpha1.SyncJobAction {
 		cc.recordJobEvent(jobInfo.Job.Namespace, jobInfo.Job.Name, batchv1alpha1.ExecuteAction, fmt.Sprintf(
 			"Start to execute action %s ", action))
 	}

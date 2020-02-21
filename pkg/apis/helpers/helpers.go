@@ -40,7 +40,7 @@ import (
 
 	vcbatch "volcano.sh/volcano/pkg/apis/batch/v1alpha1"
 	vcbus "volcano.sh/volcano/pkg/apis/bus/v1alpha1"
-	schedulerv1alpha2 "volcano.sh/volcano/pkg/apis/scheduling/v1alpha2"
+	schedulerv1beta1 "volcano.sh/volcano/pkg/apis/scheduling/v1beta1"
 )
 
 // JobKind  creates job GroupVersionKind
@@ -49,8 +49,8 @@ var JobKind = vcbatch.SchemeGroupVersion.WithKind("Job")
 // CommandKind  creates command GroupVersionKind
 var CommandKind = vcbus.SchemeGroupVersion.WithKind("Command")
 
-// V1alpha2QueueKind is queue kind with v1alpha2 version
-var V1alpha2QueueKind = schedulerv1alpha2.SchemeGroupVersion.WithKind("Queue")
+// V1beta1QueueKind is queue kind with v1alpha2 version
+var V1beta1QueueKind = schedulerv1beta1.SchemeGroupVersion.WithKind("Queue")
 
 // GetController  returns the controller uid
 func GetController(obj interface{}) types.UID {
@@ -122,6 +122,24 @@ func CreateConfigMapIfNotExist(job *vcbatch.Job, kubeClients kubernetes.Interfac
 	return nil
 }
 
+// CreateSecret create secret
+func CreateSecret(job *vcbatch.Job, kubeClients kubernetes.Interface, data map[string][]byte, secretName string) error {
+	secret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: job.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(job, JobKind),
+			},
+		},
+		Data: data,
+	}
+
+	_, err := kubeClients.CoreV1().Secrets(job.Namespace).Create(secret)
+
+	return err
+}
+
 // DeleteConfigmap  deletes the config map resource
 func DeleteConfigmap(job *vcbatch.Job, kubeClients kubernetes.Interface, cmName string) error {
 	if _, err := kubeClients.CoreV1().ConfigMaps(job.Namespace).Get(cmName, metav1.GetOptions{}); err != nil {
@@ -143,6 +161,16 @@ func DeleteConfigmap(job *vcbatch.Job, kubeClients kubernetes.Interface, cmName 
 	}
 
 	return nil
+}
+
+// DeleteSecret delete secret
+func DeleteSecret(job *vcbatch.Job, kubeClients kubernetes.Interface, secretName string) error {
+	err := kubeClients.CoreV1().Secrets(job.Namespace).Delete(secretName, nil)
+	if err != nil && true == apierrors.IsNotFound(err) {
+		return nil
+	}
+
+	return err
 }
 
 // GeneratePodgroupName  generate podgroup name of normal pod

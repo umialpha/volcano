@@ -22,13 +22,11 @@ import (
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
-	policyv1 "k8s.io/api/policy/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"volcano.sh/volcano/pkg/apis/scheduling"
-	"volcano.sh/volcano/pkg/apis/scheduling/v1alpha2"
+	"volcano.sh/volcano/pkg/apis/scheduling/v1beta1"
 )
 
 // TaskID is UID type for Task
@@ -56,7 +54,7 @@ type TaskInfo struct {
 }
 
 func getJobID(pod *v1.Pod) JobID {
-	if gn, found := pod.Annotations[v1alpha2.GroupNameAnnotationKey]; found && len(gn) != 0 {
+	if gn, found := pod.Annotations[v1beta1.KubeGroupNameAnnotationKey]; found && len(gn) != 0 {
 		// Make sure Pod and PodGroup belong to the same namespace.
 		return genJobID(pod.Namespace, gn)
 	}
@@ -152,11 +150,7 @@ type JobInfo struct {
 
 	CreationTimestamp metav1.Time
 	PodGroup          *PodGroup
-
-	// TODO(k82cn): keep backward compatibility, removed it when v1alpha1 finalized.
-	PDB *policyv1.PodDisruptionBudget
-
-	SubGroup string
+	SubGroup          string
 }
 
 // NewJobInfo creates a new jobInfo for set of tasks
@@ -200,23 +194,6 @@ func (ji *JobInfo) SetPodGroup(pg *PodGroup) {
 
 }
 
-// SetPDB sets PDB to a job
-func (ji *JobInfo) SetPDB(pdb *policyv1.PodDisruptionBudget) {
-	ji.Name = pdb.Name
-	defaultMinAvailable := intstr.IntOrString{Type: intstr.Int, IntVal: int32(0)}
-	minAvailable := pdb.Spec.MinAvailable
-	ji.MinAvailable = int32(intstr.ValueOrDefault(minAvailable, defaultMinAvailable).IntValue())
-	ji.Namespace = pdb.Namespace
-
-	ji.CreationTimestamp = pdb.GetCreationTimestamp()
-	ji.PDB = pdb
-}
-
-// UnsetPDB removes PDB info of a job
-func (ji *JobInfo) UnsetPDB() {
-	ji.PDB = nil
-}
-
 func (ji *JobInfo) addTaskIndex(ti *TaskInfo) {
 	if _, found := ji.TaskStatusIndex[ti.Status]; !found {
 		ji.TaskStatusIndex[ti.Status] = tasksMap{}
@@ -237,16 +214,21 @@ func (ji *JobInfo) AddTaskInfo(ti *TaskInfo) {
 	}
 }
 
-// UpdateTaskStatus is used to update task's status in a job
+// UpdateTaskStatus is used to update task's status in a job.
+// If error occurs both task and job are guaranteed to be in the original state.
 func (ji *JobInfo) UpdateTaskStatus(task *TaskInfo, status TaskStatus) error {
 	if err := validateStatusUpdate(task.Status, status); err != nil {
 		return err
 	}
 
-	// Remove the task from the task list firstly
-	ji.DeleteTaskInfo(task)
+	// First remove the task (if exist) from the task list.
+	if _, found := ji.Tasks[task.UID]; found {
+		if err := ji.DeleteTaskInfo(task); err != nil {
+			return err
+		}
+	}
 
-	// Update task's status to the target status
+	// Update task's status to the target status once task addition is guaranteed to succeed.
 	task.Status = status
 	ji.AddTaskInfo(task)
 
@@ -298,7 +280,6 @@ func (ji *JobInfo) Clone() *JobInfo {
 
 		NodesFitErrors: make(map[TaskID]*FitErrors),
 
-		PDB:      ji.PDB,
 		PodGroup: ji.PodGroup,
 		SubGroup: ji.SubGroup,
 
@@ -350,17 +331,26 @@ func (ji *JobInfo) FitError() string {
 	return reasonMsg
 }
 
-// ReadyTaskNum returns the number of tasks that are ready.
+// ReadyTaskNum returns the number of tasks that are ready or that is best-effort.
 func (ji *JobInfo) ReadyTaskNum() int32 {
-	occupid := 0
+	var occupied int32
 	for status, tasks := range ji.TaskStatusIndex {
 		if AllocatedStatus(status) ||
 			status == Succeeded {
-			occupid = occupid + len(tasks)
+			occupied += int32(len(tasks))
+			continue
+		}
+
+		if status == Pending {
+			for _, task := range tasks {
+				if task.InitResreq.IsEmpty() {
+					occupied++
+				}
+			}
 		}
 	}
 
-	return int32(occupid)
+	return occupied
 }
 
 // WaitingTaskNum returns the number of tasks that are pipelined.

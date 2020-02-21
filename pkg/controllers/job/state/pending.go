@@ -18,6 +18,7 @@ package state
 
 import (
 	vcbatch "volcano.sh/volcano/pkg/apis/batch/v1alpha1"
+	"volcano.sh/volcano/pkg/apis/bus/v1alpha1"
 	"volcano.sh/volcano/pkg/controllers/apis"
 )
 
@@ -25,39 +26,35 @@ type pendingState struct {
 	job *apis.JobInfo
 }
 
-func (ps *pendingState) Execute(action vcbatch.Action) error {
+func (ps *pendingState) Execute(action v1alpha1.Action) error {
 	switch action {
-	case vcbatch.RestartJobAction:
+	case v1alpha1.RestartJobAction:
 		return KillJob(ps.job, PodRetainPhaseNone, func(status *vcbatch.JobStatus) bool {
 			status.RetryCount++
 			status.State.Phase = vcbatch.Restarting
 			return true
 		})
 
-	case vcbatch.AbortJobAction:
+	case v1alpha1.AbortJobAction:
 		return KillJob(ps.job, PodRetainPhaseSoft, func(status *vcbatch.JobStatus) bool {
 			status.State.Phase = vcbatch.Aborting
 			return true
 		})
-	case vcbatch.CompleteJobAction:
+	case v1alpha1.CompleteJobAction:
 		return KillJob(ps.job, PodRetainPhaseSoft, func(status *vcbatch.JobStatus) bool {
 			status.State.Phase = vcbatch.Completing
 			return true
 		})
-	case vcbatch.TerminateJobAction:
+	case v1alpha1.TerminateJobAction:
 		return KillJob(ps.job, PodRetainPhaseSoft, func(status *vcbatch.JobStatus) bool {
 			status.State.Phase = vcbatch.Terminating
 			return true
 		})
 	default:
 		return SyncJob(ps.job, func(status *vcbatch.JobStatus) bool {
-			phase := vcbatch.Pending
-
 			if ps.job.Job.Spec.MinAvailable <= status.Running+status.Succeeded+status.Failed {
-				phase = vcbatch.Running
+				status.State.Phase = vcbatch.Running
 			}
-
-			status.State.Phase = phase
 			return true
 		})
 	}

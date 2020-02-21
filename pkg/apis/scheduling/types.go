@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2019 The Volcano Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -247,6 +247,9 @@ type Queue struct {
 
 // QueueStatus represents the status of Queue.
 type QueueStatus struct {
+	// State is status of queue
+	State QueueState
+
 	// The number of 'Unknown' PodGroup in this queue.
 	Unknown int32
 	// The number of 'Pending' PodGroup in this queue.
@@ -255,16 +258,17 @@ type QueueStatus struct {
 	Running int32
 	// The number of `Inqueue` PodGroup in this queue.
 	Inqueue int32
-	// State is status of queue
-	State QueueState
 }
 
 // QueueSpec represents the template of Queue.
 type QueueSpec struct {
 	Weight     int32
 	Capability v1.ResourceList
-	// State controller the status of queue
+
+	// Depreicated: replaced by status.State
 	State QueueState
+	// Reclaimable indicate whether the queue can be reclaimed by other queue
+	Reclaimable *bool
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -279,15 +283,4 @@ type QueueList struct {
 
 	// items is the list of PodGroup
 	Items []Queue
-}
-
-// QueueRequest struct
-type QueueRequest struct {
-	// Name is queue name
-	Name string
-
-	// Event is event of queue
-	Event QueueEvent
-	// Action is action to be performed
-	Action QueueAction
 }

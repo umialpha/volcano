@@ -42,7 +42,7 @@ import (
 	api "k8s.io/kubernetes/pkg/apis/core"
 
 	batchv1alpha1 "volcano.sh/volcano/pkg/apis/batch/v1alpha1"
-	schedulingv1alpha2 "volcano.sh/volcano/pkg/apis/scheduling/v1alpha2"
+	schedulingv1beta1 "volcano.sh/volcano/pkg/apis/scheduling/v1beta1"
 	vcclient "volcano.sh/volcano/pkg/client/clientset/versioned"
 	schedulerapi "volcano.sh/volcano/pkg/scheduler/api"
 )
@@ -170,6 +170,21 @@ func namespaceNotExistWithName(ctx *context, name string) wait.ConditionFunc {
 	}
 }
 
+func queueClosed(ctx *context, name string) wait.ConditionFunc {
+	return func() (bool, error) {
+		queue, err := ctx.vcclient.SchedulingV1beta1().Queues().Get(name, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+
+		if queue.Status.State != schedulingv1beta1.QueueStateClosed {
+			return false, nil
+		}
+
+		return true, nil
+	}
+}
+
 func fileExist(name string) bool {
 	if _, err := os.Stat(name); err != nil {
 		if os.IsNotExist(err) {
@@ -197,11 +212,11 @@ func cleanupTestContext(ctx *context) {
 
 func createQueues(cxt *context) {
 	for _, q := range cxt.queues {
-		_, err := cxt.vcclient.SchedulingV1alpha2().Queues().Create(&schedulingv1alpha2.Queue{
+		_, err := cxt.vcclient.SchedulingV1beta1().Queues().Create(&schedulingv1beta1.Queue{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: q,
 			},
-			Spec: schedulingv1alpha2.QueueSpec{
+			Spec: schedulingv1beta1.QueueSpec{
 				Weight: 1,
 			},
 		})
@@ -214,7 +229,15 @@ func deleteQueues(cxt *context) {
 	foreground := metav1.DeletePropagationForeground
 
 	for _, q := range cxt.queues {
-		err := cxt.vcclient.SchedulingV1alpha2().Queues().Delete(q, &metav1.DeleteOptions{
+		queue, err := cxt.vcclient.SchedulingV1beta1().Queues().Get(q, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		queue.Status.State = schedulingv1beta1.QueueStateClosed
+		_, err = cxt.vcclient.SchedulingV1beta1().Queues().UpdateStatus(queue)
+		Expect(err).NotTo(HaveOccurred())
+		err = wait.Poll(100*time.Millisecond, oneMinute, queueClosed(cxt, q))
+		Expect(err).NotTo(HaveOccurred())
+
+		err = cxt.vcclient.SchedulingV1beta1().Queues().Delete(q, &metav1.DeleteOptions{
 			PropagationPolicy: &foreground,
 		})
 
@@ -439,7 +462,7 @@ func jobUnschedulable(ctx *context, job *batchv1alpha1.Job, now time.Time) error
 	var additionalError error
 	// TODO(k82cn): check Job's Condition instead of PodGroup's event.
 	err := wait.Poll(10*time.Second, oneMinute, func() (bool, error) {
-		pg, err := ctx.vcclient.SchedulingV1alpha2().PodGroups(job.Namespace).Get(job.Name, metav1.GetOptions{})
+		pg, err := ctx.vcclient.SchedulingV1beta1().PodGroups(job.Namespace).Get(job.Name, metav1.GetOptions{})
 		if err != nil {
 			additionalError = fmt.Errorf("expected to have job's podgroup %s created, actual got error %s",
 				job.Name, err.Error())
@@ -473,7 +496,7 @@ func jobUnschedulable(ctx *context, job *batchv1alpha1.Job, now time.Time) error
 func jobEvicted(ctx *context, job *batchv1alpha1.Job, time time.Time) wait.ConditionFunc {
 	// TODO(k82cn): check Job's conditions instead of PodGroup's event.
 	return func() (bool, error) {
-		pg, err := ctx.vcclient.SchedulingV1alpha2().PodGroups(job.Namespace).Get(job.Name, metav1.GetOptions{})
+		pg, err := ctx.vcclient.SchedulingV1beta1().PodGroups(job.Namespace).Get(job.Name, metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
 		events, err := ctx.kubeclient.CoreV1().Events(pg.Namespace).List(metav1.ListOptions{})
@@ -755,7 +778,7 @@ func waitJobCleanedUp(ctx *context, cleanupjob *batchv1alpha1.Job) error {
 			return false, nil
 		}
 
-		pg, err := ctx.vcclient.SchedulingV1alpha2().PodGroups(cleanupjob.Namespace).Get(cleanupjob.Name, metav1.GetOptions{})
+		pg, err := ctx.vcclient.SchedulingV1beta1().PodGroups(cleanupjob.Namespace).Get(cleanupjob.Name, metav1.GetOptions{})
 		if err != nil && !errors.IsNotFound(err) {
 			return false, nil
 		}
@@ -1144,7 +1167,7 @@ func waitPodPhase(ctx *context, pod *v1.Pod, phase []v1.PodPhase) error {
 }
 
 func pgIsReady(ctx *context, namespace string) (bool, error) {
-	pgs, err := ctx.vcclient.SchedulingV1alpha2().PodGroups(namespace).List(metav1.ListOptions{})
+	pgs, err := ctx.vcclient.SchedulingV1beta1().PodGroups(namespace).List(metav1.ListOptions{})
 	if err != nil {
 		return false, err
 	}
@@ -1153,7 +1176,7 @@ func pgIsReady(ctx *context, namespace string) (bool, error) {
 	}
 
 	for _, pg := range pgs.Items {
-		if pg.Status.Phase != schedulingv1alpha2.PodGroupPending {
+		if pg.Status.Phase != schedulingv1beta1.PodGroupPending {
 			return true, nil
 		}
 	}

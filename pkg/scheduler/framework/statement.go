@@ -73,7 +73,7 @@ func (s *Statement) Evict(reclaimee *api.TaskInfo, reason string) error {
 
 func (s *Statement) evict(reclaimee *api.TaskInfo, reason string) error {
 	if err := s.ssn.cache.Evict(reclaimee, reason); err != nil {
-		if e := s.unevict(reclaimee, reason); err != nil {
+		if e := s.unevict(reclaimee, reason); e != nil {
 			klog.Errorf("Faled to unevict task <%v/%v>: %v.",
 				reclaimee.Namespace, reclaimee.Name, e)
 		}
@@ -171,6 +171,7 @@ func (s *Statement) unpipeline(task *api.TaskInfo) error {
 	}
 
 	hostname := task.NodeName
+	task.NodeName = ""
 
 	if node, found := s.ssn.Nodes[hostname]; found {
 		if err := node.RemoveTask(task); err != nil {
@@ -295,6 +296,7 @@ func (s *Statement) unallocate(task *api.TaskInfo, reason string) error {
 		node.RemoveTask(task)
 	}
 
+	task.NodeName = ""
 	for _, eh := range s.ssn.eventHandlers {
 		if eh.DeallocateFunc != nil {
 			eh.DeallocateFunc(&Event{
